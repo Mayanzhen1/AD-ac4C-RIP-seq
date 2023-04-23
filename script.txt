@@ -1,0 +1,30 @@
+## All samples are generated as bam files using the following command
+## cut adaptor
+cutadapt -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCA -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT \
+    -o sample.cutadapt.1.fq.gz -p sample.cutadapt.2.fq.gz  \
+    sample_1.fq.gz sample_2.fq.gz -j 0
+
+## mapping
+hisat2 -p 8 --rna-strandness RF \
+    --dta -x Mus_musculus.GRCm38.dna_sm.chromosome.1 -U sample.cutadapt.1.fq.gz \
+    -S sample.sam
+
+## sam to bam
+/usr/local/bin/samtools view -@ 16 -b -S sample.sam -o sample.bam
+/usr/local/bin/samtools sort -@ 16 -m 3G -o sample.sorted.bam sample.bam
+/usr/local/bin/samtools view -@ 16 -b -q 30 sample.sorted.bam -o sample.uniq.sorted.bam
+/usr/local/bin/samtools index -@ 16 sample.uniq.sorted.bam
+
+## call peak using exomepeak in R
+Rscript exomepeak.R
+
+## motif analysis using homer
+findMotifsGenome.pl peak.bed Mus_musculus.GRCm38.dna_sm.primary_assembly.fa \
+    group_homer_out/ -len 12 -rna -p 12
+
+## identifying the number of input genes using featurecounts
+featureCounts -s RF -T 12 -t exon -g gene_id \
+        -a Mus_musculus.GRCm38.91.gtf -o All.counts.txt `ls *input.uniq.sorted.bam`
+
+## diff analysis using DESeq2 in R
+## gokegg analysis using clusterProfile in R
