@@ -16,7 +16,7 @@ hisat2 -p 8 --rna-strandness RF \
 /usr/local/bin/samtools index -@ 16 sample.uniq.sorted.bam
 
 ## call peak using exomepeak in R
-Rscript exomepeak.R
+result_Group = exomepeak(GENOME = "mm10",UCSC_TABLE_NAME = "ensGene", IP_BAM=c(f1,f2), INPUT_BAM=c(f3,f4),EXPERIMENT_NAME = "exomePeak_AD")
 
 ## motif analysis using homer
 findMotifsGenome.pl peak.bed Mus_musculus.GRCm38.dna_sm.primary_assembly.fa \
@@ -27,4 +27,33 @@ featureCounts -s RF -T 12 -t exon -g gene_id \
         -a Mus_musculus.GRCm38.91.gtf -o All.counts.txt `ls *input.uniq.sorted.bam`
 
 ## diff analysis using DESeq2 in R
+DESeq2 in R:
+count_data <- read.delim('All.count.txt')
+sample_info <- read.csv('g2VSg1.csv')
+condition <- factor( c(rep('g1',3), rep('g2',3)))
+
+dds <- DESeqDataSetFromMatrix(countData = count_data,
+                              colData = sample_info,
+                              design = ~ condition)
+dds <- DESeq(dds)
+res <- results(dds)
+res_sig <- res[res$pvalue < 0.05 & abs(res$log2FoldChange) > 1,]
+
 ## gokegg analysis using clusterProfile in R
+enrich_resGO <- enrichGO(gene = gene_list$gene_symbol,
+                       OrgDb = org.Mm.eg.db,
+                       keyType = "SYMBOL",
+                       ont = "ALL",
+                       minGSSize = 2,
+                       pAdjustMethod = "fdr",
+                       pvalueCutoff = 1,
+                       qvalueCutoff = 1,
+                       readable = TRUE)
+enrich_resKEGG <- enrichKEGG(gene = gene_list$gene_symbol,
+                       organism = "mmu",
+                       keyType = "kegg",
+                       minGSSize = 2,
+                       pAdjustMethod = "fdr",
+                       pvalueCutoff = 1,
+                       qvalueCutoff = 1,
+                       readable = TRUE)
